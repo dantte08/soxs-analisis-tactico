@@ -105,12 +105,13 @@ def build_features(prices: pd.DataFrame, fred: pd.DataFrame | None = None) -> pd
     frame["macd_signal_pct"] = macd_signal / close
     frame["macd_hist_pct"] = (macd_line - macd_signal) / close
     if fred is not None and not fred.empty:
-        base = frame.sort_values("Date")
+        base = frame.sort_values("Date").copy()
+        base["Date"] = pd.to_datetime(base["Date"]).dt.tz_localize(None).dt.as_unit("ns")
         for series in FRED_FEATURES:
             subset = fred.loc[fred["series_id"] == series, ["available_date", "value"]].copy()
             if subset.empty:
                 continue
-            subset["available_date"] = pd.to_datetime(subset["available_date"]).dt.tz_localize(None)
+            subset["available_date"] = pd.to_datetime(subset["available_date"]).dt.tz_localize(None).dt.as_unit("ns")
             subset["value"] = pd.to_numeric(subset["value"], errors="coerce")
             subset = subset.dropna().sort_values("available_date").drop_duplicates("available_date", keep="last")
             subset = subset.rename(columns={"available_date": "Date", "value": series})
