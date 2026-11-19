@@ -11,10 +11,13 @@ import streamlit as st
 from dotenv import load_dotenv
 from sklearn.metrics import confusion_matrix
 
+from agents.market_agent import MarketAgent
+from agents.prediction_agent import PredictionAgent
+from agents.decision_agent import DecisionAgent
 from soxs.alerts import record_alert, send_telegram_alert, set_telegram_status
-from soxs.core import FRED_FEATURES, analyze, download_prices
+from soxs.core import FRED_FEATURES
 from soxs.llm import LLMError, daily_request_count, log_recommendation, log_request_attempt, recommend
-from soxs.paper_broker import AlpacaPaper, auto_paper_cycle
+from soxs.paper_broker import AlpacaPaper
 from soxs.sources import FRED_SERIES, fetch_fred, read_sec_document, recent_sec_filings, score_manual_texts
 
 load_dotenv()
@@ -42,7 +45,7 @@ st.info(
 
 @st.cache_data(ttl=300, show_spinner=False)
 def cached_prices(period: str) -> pd.DataFrame:
-    return download_prices(period)
+    return MarketAgent().run(period)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -85,8 +88,10 @@ try:
                 fred = cached_fred(fred_key, start)
             except Exception as exc:
                 fred_error = str(exc)
-        analysis, backtest, bt = analyze(prices, fred if not fred.empty else None,
-                                         max_sessions=max_sessions, commission=commission_pct / 100)
+        analysis, backtest, bt = PredictionAgent().run(
+            prices, fred if not fred.empty else None,
+            max_sessions=max_sessions, commission=commission_pct / 100
+        )
     dashboard_calc_seconds = time.perf_counter() - load_started
 except Exception as exc:
     st.error(f"No se pudo completar el análisis: {exc}")
@@ -100,7 +105,7 @@ market_date = pd.to_datetime(last["Date"]).date()
 st.caption(f"Último dato de SOXS: {market_date} · ${float(last['Close']):.2f} · Yahoo Finance · caché de 300 segundos")
 
 tabs = st.tabs(["Reporte descriptivo", "Reporte predictivo", "Backtesting", "Fuentes y ETL",
-                "Reporte prescriptivo LLM", "Alpaca Paper", "Monitoreo y entrega"])
+                "Reporte prescriptivo LLM", "Alpaca Paper", "Monitoreo y entrega", "Agentes multiagente"])
 
 with tabs[0]:
     st.subheader("¿Qué pasó? — comportamiento reciente de SOXS")
@@ -372,11 +377,15 @@ with tabs[5]:
                     if macro_key:
                         start_fred = (pd.to_datetime(fresh_prices["Date"].min()) - pd.Timedelta(days=370)).date().isoformat()
                         fresh_macro = cached_fred(macro_key, start_fred)
-                    fresh_analysis, _, _ = analyze(fresh_prices, fresh_macro if not fresh_macro.empty else None,
-                                                   max_sessions=max_hold, commission=commission_rate)
+                    fresh_analysis, _, _ = PredictionAgent().run(
+                        fresh_prices, fresh_macro if not fresh_macro.empty else None,
+                        max_sessions=max_hold, commission=commission_rate
+                    )
                     paper = AlpacaPaper(key, secret)
-                    result = auto_paper_cycle(paper, fresh_analysis.probability_up, fresh_prices["Date"],
-                                              max_hold, manual_entry_date=manual_date)
+                    result = DecisionAgent().run(
+                        paper, fresh_analysis.probability_up, fresh_prices["Date"],
+                        max_sessions=max_hold, manual_entry_date=manual_date
+                    )
                     result["probability_up"] = fresh_analysis.probability_up
                     result["signal"] = fresh_analysis.signal
                     st.session_state.bot_result = result
@@ -445,6 +454,26 @@ with tabs[6]:
     st.markdown("- Ejecutar la llamada real al LLM, conservar tres ejemplos revisados y registrar tokens/latencia.")
     st.markdown("- Adjuntar capturas reales de los tres reportes, valores de las 3V, métricas, hallazgos y matriz de pruebas.")
     st.markdown("- Grabar el video de demostración de 3 a 5 minutos y completar cronograma/aportes del equipo.")
+
+with tabs[7]:
+    st.subheader("Arquitectura multiagente del proyecto")
+    st.caption("Tres agentes especializados colaboran en la ruta principal; los módulos de fuentes y el broker aportan contexto y ejecución simulada.")
+    c1, c2, c3 = st.columns(3)
+    c1.markdown("### 1. Agente de mercado")
+    c1.write("Descarga los datos diarios de SOXS y entrega precios y volumen al análisis.")
+    c1.metric("Última fecha cargada", str(market_date))
+    c1.metric("Cierre ajustado", f"${float(last['Close']):.2f}")
+    c2.markdown("### 2. Agente predictivo")
+    c2.write("Compara Random Forest y XGBoost con una partición temporal y selecciona el modelo por F1.")
+    c2.metric("Modelo seleccionado", analysis.model_name)
+    c2.metric("Probabilidad de alza", f"{analysis.probability_up:.1%}")
+    c3.markdown("### 3. Agente de decisión")
+    c3.write("Aplica umbrales, antigüedad máxima, posición abierta y órdenes pendientes antes de proponer una acción PAPER.")
+    c3.metric("Señal evaluada", analysis.signal)
+    c3.metric("Tope por posición", f"{max_sessions} sesiones")
+    st.markdown("**Flujo:** Agente de mercado → Agente predictivo → Agente de decisión → Alpaca Paper")
+    st.info("El agente de decisión solo ejecuta dentro del ciclo automático PAPER, cuando el usuario lo activa y confirma. La compra/venta manual sigue bajo confirmación explícita. No hay conexión a órdenes reales.")
+    st.markdown("**Agentes de apoyo:** FRED aporta variables macroeconómicas; SEC EDGAR permite revisar documentos; el análisis de sentimiento procesa texto ingresado por el usuario. El LLM redacta una orientación y no accede a Alpaca.")
 
 st.divider()
 st.caption("Uso académico. SOXS tiene un objetivo inverso apalancado diario; el rendimiento en varios días puede diferir. Los resultados no garantizan desempeño futuro. Todas las órdenes del programa son Alpaca Paper.")

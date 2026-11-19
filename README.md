@@ -9,11 +9,29 @@ Aplicación web académica con Streamlit para estudiar señales tácticas de SOX
 - La referencia “SOXS sin límite” se muestra únicamente como comparación dentro del bloque de prueba; no es una estrategia recomendada.
 - No se envían operaciones reales. Alpaca se fija en `https://paper-api.alpaca.markets`; la compra automática PAPER está desactivada por defecto y requiere habilitación/confirmación explícitas.
 
+## Arquitectura multiagente
+La pestaña **Agentes multiagente** muestra la ruta principal, compuesta por tres agentes conectados:
+
+1. **Agente de mercado** (`agents/market_agent.py`): descarga los datos diarios de SOXS.
+2. **Agente predictivo** (`agents/prediction_agent.py`): ejecuta el análisis con Random Forest/XGBoost, selecciona por F1 y entrega probabilidad, señal y backtest.
+3. **Agente de decisión** (`agents/decision_agent.py`): pasa la probabilidad al ciclo PAPER, que verifica posición, órdenes pendientes y límite de permanencia antes de enviar una operación simulada.
+
+El flujo es `mercado → predicción → decisión → Alpaca Paper`. FRED, SEC EDGAR y el análisis de texto agregan contexto. El LLM explica los resultados, pero no recibe credenciales ni envía órdenes. Random Forest y XGBoost son modelos de ML, no agentes.
+
+### Guion breve para demostrar los agentes
+- En **Reporte descriptivo**, muestra los datos y explica que los prepara el Agente de mercado.
+- En **Reporte predictivo**, señala el modelo elegido, la probabilidad y la señal del Agente predictivo.
+- En **Agentes multiagente**, presenta los tres roles y cómo se conectan.
+- En **Alpaca Paper**, explica que el Agente de decisión revisa la posición y las órdenes pendientes antes de autorizar el ciclo simulado. Mantén el bot apagado durante la exposición si no deseas que envíe órdenes PAPER.
+
 ## Módulos
 
 | Archivo | Responsabilidad |
 |---|---|
 | `app.py` | UI Streamlit y reportes descriptivo, predictivo, prescriptivo, fuentes, Paper y monitoreo. |
+| `agents/market_agent.py` | Obtiene precios diarios de SOXS. |
+| `agents/prediction_agent.py` | Ejecuta ML, señal y backtesting. |
+| `agents/decision_agent.py` | Coordina la señal con el ciclo de riesgo PAPER. |
 | `soxs/core.py` | Limpieza OHLCV, RSI, MACD, línea base, modelos, partición temporal, métricas y backtesting. |
 | `soxs/sources.py` | FRED con valores de primera publicación, consultas SEC, extracción documental y léxico manual. |
 | `soxs/llm.py` | OpenAI Responses API con JSON Schema estricto, registro y límite local de 20 intentos diarios. |

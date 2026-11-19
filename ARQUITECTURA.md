@@ -2,9 +2,9 @@
 
 ```mermaid
 flowchart TD
-    YF["Yahoo Finance · OHLCV SOXS"] --> ETL["Validación, ajuste y features"]
+    YF["Agente de mercado · Yahoo Finance SOXS"] --> ETL["Validación, ajuste y features"]
     FRED["FRED · primera publicación opcional"] --> ETL
-    ETL --> ML["Random Forest / XGBoost"]
+    ETL --> ML["Agente predictivo · Random Forest / XGBoost"]
     ETL --> BASE["Línea base mayoritaria"]
     ML --> PRED["Probabilidad y señal diaria"]
     BASE --> CMP["Métricas de prueba temporal"]
@@ -17,7 +17,8 @@ flowchart TD
     CMP --> UI["Dashboard Streamlit · 3 reportes"]
     LLM --> UI
     BT --> UI
-    UI --> PAPER["Alpaca Paper · manual / auto opcional"]
+    UI --> DEC["Agente de decisión · señal + riesgo + estado"]
+    DEC --> PAPER["Alpaca Paper · manual / auto opcional"]
     UI --> MON["Monitoreo CSV local"]
 ```
 
@@ -36,6 +37,9 @@ flowchart TD
 | Archivo | Responsabilidad |
 |---|---|
 | `app.py` | Dashboard, reportes y acciones del usuario. |
+| `agents/market_agent.py` | Obtiene los precios históricos de SOXS. |
+| `agents/prediction_agent.py` | Ejecuta el análisis ML y el backtest. |
+| `agents/decision_agent.py` | Evalúa y coordina decisiones controladas en Alpaca Paper. |
 | `soxs/core.py` | OHLCV, calidad/ETL, features, modelos, métricas, selección y backtest. |
 | `soxs/sources.py` | FRED, SEC EDGAR y clasificación léxica de textos. |
 | `soxs/llm.py` | LLM estructurado, límites y registro. |
