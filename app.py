@@ -105,7 +105,7 @@ market_date = pd.to_datetime(last["Date"]).date()
 st.caption(f"Último dato de SOXS: {market_date} · ${float(last['Close']):.2f} · Yahoo Finance · caché de 300 segundos")
 
 tabs = st.tabs(["Reporte descriptivo", "Reporte predictivo", "Backtesting", "Fuentes y ETL",
-                "Reporte prescriptivo LLM", "Alpaca Paper", "Monitoreo y entrega", "Agentes multiagente"])
+                "Reporte prescriptivo LLM", "Alpaca Paper", "Monitoreo", "Agentes multiagente"])
 
 with tabs[0]:
     st.subheader("¿Qué pasó? — comportamiento reciente de SOXS")
@@ -416,7 +416,7 @@ with tabs[5]:
             st.error(f"No se pudo consultar Alpaca Paper: {exc}")
 
 with tabs[6]:
-    st.subheader("Monitoreo y lista de evidencias")
+    st.subheader("Monitoreo del modelo")
     monitor_path = Path("data/monitoring_history.csv")
     record = {"fecha": pd.Timestamp.now().isoformat(timespec="seconds"), "modelo": analysis.model_name,
               "accuracy": analysis.metrics["accuracy"], "precision": analysis.metrics["precision"],
@@ -448,13 +448,6 @@ with tabs[6]:
         st.caption("Telegram está configurado. Los avisos se envían solo para órdenes y eventos importantes, mientras la app está abierta.")
     else:
         st.caption("Telegram es opcional. Configura token y chat ID en el panel lateral para recibir avisos.")
-    st.markdown("**Pendiente antes de declarar la entrega completa**")
-    st.markdown("- Publicar el tablero en una URL pública y abrirla sin iniciar sesión.")
-    st.markdown("- Subir el código al GitHub del equipo, revisar el historial y compartir el enlace.")
-    st.markdown("- Ejecutar la llamada real al LLM, conservar tres ejemplos revisados y registrar tokens/latencia.")
-    st.markdown("- Adjuntar capturas reales de los tres reportes, valores de las 3V, métricas, hallazgos y matriz de pruebas.")
-    st.markdown("- Grabar el video de demostración de 3 a 5 minutos y completar cronograma/aportes del equipo.")
-
 with tabs[7]:
     st.subheader("Arquitectura multiagente del proyecto")
     st.caption("Tres agentes especializados colaboran en la ruta principal; los módulos de fuentes y el broker aportan contexto y ejecución simulada.")
